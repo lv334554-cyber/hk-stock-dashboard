@@ -337,9 +337,9 @@
                 大市总成交量 (近15天)
             </div>
             <div class="legend">
-                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-ice)"></div>冰点区 (&lt;30亿)</div>
-                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-active)"></div>活跃区 (40-60亿)</div>
-                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-boil)"></div>沸点区 (&gt;80亿)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-ice)"></div>冰点区 (&lt;2000亿)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-active)"></div>活跃区 (2500-3500亿)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-boil)"></div>沸点区 (&gt;4500亿)</div>
             </div>
             <div class="chart-wrap" id="turnoverChart-wrap">
                 <canvas id="turnoverChart"></canvas>
@@ -352,9 +352,9 @@
             <div class="zone-info">
                 <h4>📖 区间说明</h4>
                 <div class="zone-desc">
-                    <span><div class="dot" style="background: var(--zone-ice)"></div>冰点区 &lt;30亿：市场极度冷清，底部震荡或阴跌</span>
-                    <span><div class="dot" style="background: var(--zone-active)"></div>活跃区 40-60亿：情绪健康，适合顺势交易</span>
-                    <span><div class="dot" style="background: var(--zone-boil)"></div>沸点区 &gt;80亿：极度狂热，提防见顶</span>
+                    <span><div class="dot" style="background: var(--zone-ice)"></div>冰点区 &lt;2000亿：市场极度冷清，底部震荡或阴跌</span>
+                    <span><div class="dot" style="background: var(--zone-active)"></div>活跃区 2500-3500亿：情绪健康，适合顺势交易</span>
+                    <span><div class="dot" style="background: var(--zone-boil)"></div>沸点区 &gt;4500亿：极度狂热，提防见顶</span>
                 </div>
             </div>
         </div>
@@ -457,9 +457,9 @@
         
         // Color utilities
         function getTurnoverColor(value) {
-            if (value < 800) return '#06b6d4';  // 冰点
-            if (value >= 1200 && value <= 1800) return '#22c55e';  // 活跃
-            if (value > 2500) return '#ef4444';  // 沸点
+            if (value < 2000) return '#06b6d4';  // 冰点
+            if (value >= 2500 && value <= 3500) return '#22c55e';  // 活跃
+            if (value > 4500) return '#ef4444';  // 沸点
             return '#6366f1';  // 中性
         }
         
