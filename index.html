@@ -70,6 +70,31 @@
         
         .refresh-btn:hover { opacity: 0.8; }
         
+        .time-range-selector {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        
+        .range-btn {
+            background: rgba(255,255,255,0.1);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .range-btn:hover { background: rgba(255,255,255,0.15); }
+        
+        .range-btn.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+        
         .grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -334,7 +359,12 @@
         <div class="card">
             <div class="card-title">
                 <span class="icon">📊</span>
-                大市总成交量 (近15天)
+                大市总成交量 (近180天)
+            </div>
+            <div class="time-range-selector">
+                <button class="range-btn" onclick="setTurnoverRange(15)">15天</button>
+                <button class="range-btn active" onclick="setTurnoverRange(60)">60天</button>
+                <button class="range-btn" onclick="setTurnoverRange(180)">180天</button>
             </div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-dot" style="background: var(--zone-ice)"></div>冰点区 (&lt;2000亿)</div>
@@ -363,7 +393,12 @@
         <div class="card">
             <div class="card-title">
                 <span class="icon">🐂🐻</span>
-                牛熊证街货比例 (近15天)
+                牛熊证街货比例 (近180天)
+            </div>
+            <div class="time-range-selector">
+                <button class="range-btn" onclick="setCbbcRange(15)">15天</button>
+                <button class="range-btn active" onclick="setCbbcRange(60)">60天</button>
+                <button class="range-btn" onclick="setCbbcRange(180)">180天</button>
             </div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-dot" style="background: var(--bull)"></div>牛证街货占比</div>
@@ -385,7 +420,12 @@
         <div class="card span-2">
             <div class="card-title">
                 <span class="icon">📈</span>
-                VHSI波幅指数 & 沽空比率 (近60天)
+                VHSI波幅指数 & 沽空比率 (近180天)
+            </div>
+            <div class="time-range-selector">
+                <button class="range-btn" onclick="setVhsiRange(15)">15天</button>
+                <button class="range-btn active" onclick="setVhsiRange(60)">60天</button>
+                <button class="range-btn" onclick="setVhsiRange(180)">180天</button>
             </div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-dot" style="background: #a855f7"></div>VHSI (波幅指数)</div>
@@ -407,7 +447,12 @@
         <div class="card">
             <div class="card-title">
                 <span class="icon">💰</span>
-                南向资金 (近15天)
+                南向资金 (近180天)
+            </div>
+            <div class="time-range-selector">
+                <button class="range-btn" onclick="setSouthboundRange(15)">15天</button>
+                <button class="range-btn active" onclick="setSouthboundRange(60)">60天</button>
+                <button class="range-btn" onclick="setSouthboundRange(180)">180天</button>
             </div>
             <div class="legend">
                 <div class="legend-item"><div class="legend-dot" style="background: #22c55e"></div>净流入 (亿港元)</div>
@@ -455,6 +500,50 @@
         // Chart instances
         let turnoverChart, cbbcChart, vhsiChart, southboundChart;
         
+        // Current range settings
+        let currentTurnoverRange = 60;
+        let currentCbbcRange = 60;
+        let currentVhsiRange = 60;
+        let currentSouthboundRange = 60;
+        
+        // Store full data
+        let fullData = {};
+        
+        // Range selector functions
+        function setTurnoverRange(days) {
+            currentTurnoverRange = days;
+            updateRangeButtons('turnover', days);
+            updateTurnoverChart(fullData.turnover || [], days);
+        }
+        
+        function setCbbcRange(days) {
+            currentCbbcRange = days;
+            updateRangeButtons('cbbc', days);
+            updateCBBCChart(fullData.cbbc || [], days);
+        }
+        
+        function setVhsiRange(days) {
+            currentVhsiRange = days;
+            updateRangeButtons('vhsi', days);
+            updateVHSIChart(fullData.vhsi_short || { vhsi: [], short_ratio: [] }, days);
+        }
+        
+        function setSouthboundRange(days) {
+            currentSouthboundRange = days;
+            updateRangeButtons('southbound', days);
+            updateSouthboundChart(fullData.southbound || [], days);
+        }
+        
+        function updateRangeButtons(chart, days) {
+            const card = document.querySelector(`[onclick*="set${chart.charAt(0).toUpperCase() + chart.slice(1)}Range"]`).closest('.card');
+            if (!card) return;
+            const buttons = card.querySelectorAll('.range-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.textContent.includes(days + '天')) btn.classList.add('active');
+            });
+        }
+        
         // Color utilities
         function getTurnoverColor(value) {
             if (value < 2000) return '#06b6d4';  // 冰点
@@ -481,6 +570,9 @@
         }
         
         function updateDashboard(data) {
+            // Store full data
+            fullData = data;
+            
             document.getElementById('lastUpdated').textContent = `最后更新: ${data.last_updated}`;
             
             // Update summary cards
@@ -515,22 +607,27 @@
                 document.getElementById('summary-southbound').style.color = latest.net_flow >= 0 ? '#22c55e' : '#ef4444';
             }
             
-            // Update charts
-            updateTurnoverChart(data.turnover || []);
-            updateCBBCChart(data.cbbc || []);
-            updateVHSIChart(data.vhsi_short || { vhsi: [], short_ratio: [] });
-            updateSouthboundChart(data.southbound || []);
+            // Update charts with current range
+            updateTurnoverChart(data.turnover || [], currentTurnoverRange);
+            updateCBBCChart(data.cbbc || [], currentCbbcRange);
+            updateVHSIChart(data.vhsi_short || { vhsi: [], short_ratio: [] }, currentVhsiRange);
+            updateSouthboundChart(data.southbound || [], currentSouthboundRange);
             updateGauge(data.short_ratio || { short_ratio: 15 });
         }
         
-        function updateTurnoverChart(data) {
+        function updateTurnoverChart(data, days = 60) {
             const ctx = document.getElementById('turnoverChart').getContext('2d');
             
             if (turnoverChart) turnoverChart.destroy();
             
-            const labels = data.map(d => d.date.slice(5));  // MM-DD
-            const values = data.map(d => d.turnover);
+            // Slice data to requested range
+            const slicedData = data.slice(-days);
+            const labels = slicedData.map(d => d.date.slice(5));  // MM-DD
+            const values = slicedData.map(d => d.turnover);
             const colors = values.map(v => getTurnoverColor(v));
+            
+            // Determine tick interval based on data size
+            const tickInterval = days <= 15 ? 1 : days <= 60 ? 5 : 20;
             
             turnoverChart = new Chart(ctx, {
                 type: 'bar',
@@ -563,19 +660,23 @@
                         },
                         x: {
                             grid: { display: false },
-                            ticks: { color: '#9ca3af', maxRotation: 45 }
+                            ticks: { color: '#9ca3af', maxRotation: 45, maxTicksLimit: 15 },
+                            afterTickToLabelConversion: function(scale) {
+                                scale.ticks = scale.ticks.filter((t, i) => i % tickInterval === 0);
+                            }
                         }
                     }
                 }
             });
         }
         
-        function updateCBBCChart(data) {
+        function updateCBBCChart(data, days = 60) {
             const ctx = document.getElementById('cbbcChart').getContext('2d');
             
             if (cbbcChart) cbbcChart.destroy();
             
-            const labels = data.map(d => d.date.slice(5));
+            const slicedData = data.slice(-days);
+            const labels = slicedData.map(d => d.date.slice(5));
             
             cbbcChart = new Chart(ctx, {
                 type: 'bar',
@@ -584,13 +685,13 @@
                     datasets: [
                         {
                             label: '牛证街货%',
-                            data: data.map(d => d.bull_ratio),
+                            data: slicedData.map(d => d.bull_ratio),
                             backgroundColor: '#22c55e',
                             borderRadius: 4,
                         },
                         {
                             label: '熊证街货%',
-                            data: data.map(d => d.bear_ratio),
+                            data: slicedData.map(d => d.bear_ratio),
                             backgroundColor: '#ef4444',
                             borderRadius: 4,
                         }
@@ -623,20 +724,26 @@
             });
         }
         
-        function updateVHSIChart(data) {
+        function updateVHSIChart(data, days = 60) {
             const ctx = document.getElementById('vhsiChart').getContext('2d');
             
             if (vhsiChart) vhsiChart.destroy();
             
-            const labels = data.vhsi.map(d => d.date.slice(5));
+            const slicedVhsi = (data.vhsi || []).slice(-days);
+            const slicedShort = (data.short_ratio || []).slice(-days);
+            const labels = slicedVhsi.map(d => d.date.slice(5));
             
             // Create gradient for VHSI
-            const vhsiValues = data.vhsi.map(d => d.vhsi);
+            const vhsiValues = slicedVhsi.map(d => d.vhsi);
+            const shortValues = slicedShort.map(d => d.short_ratio);
             const vhsiColors = vhsiValues.map(v => {
                 if (v > 35) return '#ef4444';
                 if (v < 15) return '#22c55e';
                 return '#a855f7';
             });
+            
+            // Determine tick interval
+            const tickInterval = days <= 15 ? 1 : days <= 60 ? 5 : 20;
             
             vhsiChart = new Chart(ctx, {
                 type: 'line',
@@ -656,7 +763,7 @@
                         },
                         {
                             label: '沽空比率 (%)',
-                            data: data.short_ratio.map(d => d.short_ratio),
+                            data: shortValues,
                             borderColor: '#f59e0b',
                             backgroundColor: 'transparent',
                             borderDash: [5, 5],
@@ -711,13 +818,14 @@
             });
         }
         
-        function updateSouthboundChart(data) {
+        function updateSouthboundChart(data, days = 60) {
             const ctx = document.getElementById('southboundChart').getContext('2d');
             
             if (southboundChart) southboundChart.destroy();
             
-            const labels = data.map(d => d.date.slice(5));
-            const values = data.map(d => d.net_flow);
+            const slicedData = data.slice(-days);
+            const labels = slicedData.map(d => d.date.slice(5));
+            const values = slicedData.map(d => d.net_flow);
             
             southboundChart = new Chart(ctx, {
                 type: 'bar',
