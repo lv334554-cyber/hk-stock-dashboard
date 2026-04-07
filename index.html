@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>港股情绪看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@3.0.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-dark: #0a0e17;
+            --bg-card: #111827;
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --accent-blue: #3b82f6;
+            --zone-ice: #06b6d4;      /* 冰点区 - 青色 */
+            --zone-active: #22c55e;  /* 活跃区 - 绿色 */
+            --zone-boil: #ef4444;    /* 沸点区 - 红色 */
+            --bull: #22c55e;         /* 牛证 */
+            --bear: #ef4444;          /* 熊证 */
+            --vhsi-safe: #22c55e;
+            --vhsi-danger: #ef4444;
+            --border: #1f2937;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header .subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+        
+        .refresh-btn {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+        
+        .refresh-btn:hover { opacity: 0.8; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+        }
+        
+        .card.full-width { grid-column: 1 / -1; }
+        .card.span-2 { grid-column: span 2; }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .card-title .icon {
+            font-size: 20px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+        }
+        
+        /* Gauge */
+        .gauge-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .gauge {
+            position: relative;
+            width: 200px;
+            height: 100px;
+            overflow: hidden;
+        }
+        
+        .gauge-fill {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 20px solid var(--border);
+            border-bottom-color: transparent;
+            border-left-color: transparent;
+            transform: rotate(45deg);
+            transition: all 0.5s ease;
+        }
+        
+        .gauge-value {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .gauge-label {
+            margin-top: 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        
+        /* Status badges */
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        
+        .status-ice { background: rgba(6, 182, 212, 0.2); color: var(--zone-ice); }
+        .status-active { background: rgba(34, 197, 94, 0.2); color: var(--zone-active); }
+        .status-boil { background: rgba(239, 68, 68, 0.2); color: var(--zone-boil); }
+        .status-normal { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+        .status-danger { background: rgba(239, 68, 68, 0.2); color: var(--zone-boil); }
+        
+        /* Zone indicators */
+        .zone-bar {
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 12px;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .zone-segment {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        
+        .zone-ice-bg { background: var(--zone-ice); }
+        .zone-active-bg { background: var(--zone-active); }
+        .zone-boil-bg { background: var(--zone-boil); }
+        
+        /* Summary cards */
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .summary-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .summary-change {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        
+        .change-up { color: #ef4444; }
+        .change-down { color: #22c55e; }
+        
+        /* Chart container */
+        .chart-wrap {
+            position: relative;
+            height: 250px;
+        }
+        
+        .chart-wrap.tall { height: 300px; }
+        
+        /* Color zones info */
+        .zone-info {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+            font-size: 12px;
+        }
+        
+        .zone-info h4 {
+            font-size: 13px;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+        
+        .zone-desc {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .zone-desc span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .zone-desc .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        /* Loading state */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: var(--text-secondary);
+        }
+        
+        /* Last updated */
+        .last-updated {
+            text-align: right;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        
+        @media (max-width: 1024px) {
+            .grid { grid-template-columns: 1fr; }
+            .summary-row { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🐉 港股情绪看板</h1>
+            <div class="subtitle">HK Market Sentiment Dashboard</div>
+        </div>
+        <div>
+            <button class="refresh-btn" onclick="refreshData()">🔄 刷新数据</button>
+        </div>
+    </div>
+
+    <!-- Summary Row -->
+    <div class="summary-row" id="summaryRow">
+        <div class="summary-card">
+            <div class="summary-value" id="summary-turnover">--</div>
+            <div class="summary-label">今日成交 (亿港元)</div>
+            <div class="summary-change" id="summary-turnover-change"></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-value" id="summary-vhsi">--</div>
+            <div class="summary-label">VHSI 波幅指数</div>
+            <div class="summary-change" id="summary-vhsi-change"></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-value" id="summary-short">--</div>
+            <div class="summary-label">沽空比率</div>
+            <div class="summary-change" id="summary-short-change"></div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-value" id="summary-southbound">--</div>
+            <div class="summary-label">南向资金 (亿)</div>
+            <div class="summary-change" id="summary-southbound-change"></div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <!-- Turnover Chart -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">📊</span>
+                大市总成交量 (近15天)
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-ice)"></div>冰点区 (&lt;800亿)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-active)"></div>活跃区 (1200-1800亿)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--zone-boil)"></div>沸点区 (&gt;2500亿)</div>
+            </div>
+            <div class="chart-wrap" id="turnoverChart-wrap">
+                <canvas id="turnoverChart"></canvas>
+            </div>
+            <div class="zone-bar">
+                <div class="zone-segment zone-ice-bg" style="width: 30%"></div>
+                <div class="zone-segment zone-active-bg" style="width: 25%"></div>
+                <div class="zone-segment zone-boil-bg" style="width: 45%"></div>
+            </div>
+            <div class="zone-info">
+                <h4>📖 区间说明</h4>
+                <div class="zone-desc">
+                    <span><div class="dot" style="background: var(--zone-ice)"></div>冰点区 &lt;800亿：市场极度冷清，底部震荡或阴跌</span>
+                    <span><div class="dot" style="background: var(--zone-active)"></div>活跃区 1200-1800亿：情绪健康，适合顺势交易</span>
+                    <span><div class="dot" style="background: var(--zone-boil)"></div>沸点区 &gt;2500亿：极度狂热，提防见顶</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CBBC Chart -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">🐂🐻</span>
+                牛熊证街货比例 (近15天)
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background: var(--bull)"></div>牛证街货占比</div>
+                <div class="legend-item"><div class="legend-dot" style="background: var(--bear)"></div>熊证街货占比</div>
+            </div>
+            <div class="chart-wrap" id="cbbcChart-wrap">
+                <canvas id="cbbcChart"></canvas>
+            </div>
+            <div class="zone-info">
+                <h4>📖 信号说明</h4>
+                <div class="zone-desc">
+                    <span><div class="dot" style="background: var(--bull)"></div>牛证 &gt;70%：散户极度看多，小心"杀牛"</span>
+                    <span><div class="dot" style="background: var(--bear)"></div>熊证 &gt;70%：散户极度看空，小心"杀熊"</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- VHSI & Short Selling -->
+        <div class="card span-2">
+            <div class="card-title">
+                <span class="icon">📈</span>
+                VHSI波幅指数 & 沽空比率 (近60天)
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background: #a855f7"></div>VHSI (波幅指数)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: #f59e0b"></div>沽空比率</div>
+            </div>
+            <div class="chart-wrap tall" id="vhsiChart-wrap">
+                <canvas id="vhsiChart"></canvas>
+            </div>
+            <div class="zone-info">
+                <h4>📖 信号说明</h4>
+                <div class="zone-desc">
+                    <span><div class="dot" style="background: #ef4444"></div>VHSI &gt;35 + 沽空 &gt;20%：极度绝望，随时千点反弹</span>
+                    <span><div class="dot" style="background: #22c55e"></div>VHSI &lt;15：市场极度自满，温水煮青蛙</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Southbound Flow -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">💰</span>
+                南向资金 (近15天)
+            </div>
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background: #22c55e"></div>净流入 (亿港元)</div>
+                <div class="legend-item"><div class="legend-dot" style="background: #ef4444"></div>净流出</div>
+            </div>
+            <div class="chart-wrap" id="southboundChart-wrap">
+                <canvas id="southboundChart"></canvas>
+            </div>
+            <div class="zone-info">
+                <h4>📖 信号说明</h4>
+                <div class="zone-desc">
+                    <span><div class="dot" style="background: #22c55e"></div>南向 &gt;100亿/日：内资积极买入</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Real-time Short Selling Gauge -->
+        <div class="card">
+            <div class="card-title">
+                <span class="icon">⚡</span>
+                大市沽空比率 (实时)
+            </div>
+            <div class="gauge-container">
+                <div class="gauge">
+                    <div class="gauge-fill" id="gaugeFill"></div>
+                    <div class="gauge-value" id="gaugeValue">--%</div>
+                </div>
+                <div class="gauge-label" id="gaugeStatus">获取中...</div>
+                <div id="shortBadge" class="status-badge status-normal">正常区间</div>
+            </div>
+            <div class="zone-info">
+                <h4>📖 正常区间</h4>
+                <div class="zone-desc">
+                    <span>正常区间：13% - 17%</span>
+                    <span>&lt;13%：多头强势 or 空头平仓</span>
+                    <span>&gt;17%：空头活跃，注意风险</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="last-updated" id="lastUpdated">最后更新: --</div>
+
+    <script>
+        // Chart instances
+        let turnoverChart, cbbcChart, vhsiChart, southboundChart;
+        
+        // Color utilities
+        function getTurnoverColor(value) {
+            if (value < 800) return '#06b6d4';  // 冰点
+            if (value >= 1200 && value <= 1800) return '#22c55e';  // 活跃
+            if (value > 2500) return '#ef4444';  // 沸点
+            return '#6366f1';  // 中性
+        }
+        
+        function getVHSIColor(value) {
+            if (value > 35) return '#ef4444';
+            if (value < 15) return '#22c55e';
+            return '#a855f7';
+        }
+        
+        // Load data
+        async function loadData() {
+            try {
+                const resp = await fetch('./market_data.json');
+                const data = await resp.json();
+                updateDashboard(data);
+            } catch (e) {
+                console.error('Failed to load data:', e);
+            }
+        }
+        
+        function updateDashboard(data) {
+            document.getElementById('lastUpdated').textContent = `最后更新: ${data.last_updated}`;
+            
+            // Update summary cards
+            if (data.turnover && data.turnover.length > 0) {
+                const latest = data.turnover[data.turnover.length - 1];
+                document.getElementById('summary-turnover').textContent = latest.turnover;
+                document.getElementById('summary-turnover').style.color = getTurnoverColor(latest.turnover);
+                
+                if (data.turnover.length > 1) {
+                    const prev = data.turnover[data.turnover.length - 2];
+                    const change = latest.turnover - prev.turnover;
+                    const el = document.getElementById('summary-turnover-change');
+                    el.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(1)}亿 (日环比)`;
+                    el.className = `summary-change ${change >= 0 ? 'change-up' : 'change-down'}`;
+                }
+            }
+            
+            if (data.vhsi_short && data.vhsi_short.vhsi && data.vhsi_short.vhsi.length > 0) {
+                const latest = data.vhsi_short.vhsi[data.vhsi_short.vhsi.length - 1];
+                document.getElementById('summary-vhsi').textContent = latest.vhsi;
+                document.getElementById('summary-vhsi').style.color = getVHSIColor(latest.vhsi);
+            }
+            
+            if (data.vhsi_short && data.vhsi_short.short_ratio && data.vhsi_short.short_ratio.length > 0) {
+                const latest = data.vhsi_short.short_ratio[data.vhsi_short.short_ratio.length - 1];
+                document.getElementById('summary-short').textContent = latest.short_ratio + '%';
+            }
+            
+            if (data.southbound && data.southbound.length > 0) {
+                const latest = data.southbound[data.southbound.length - 1];
+                document.getElementById('summary-southbound').textContent = latest.net_flow;
+                document.getElementById('summary-southbound').style.color = latest.net_flow >= 0 ? '#22c55e' : '#ef4444';
+            }
+            
+            // Update charts
+            updateTurnoverChart(data.turnover || []);
+            updateCBBCChart(data.cbbc || []);
+            updateVHSIChart(data.vhsi_short || { vhsi: [], short_ratio: [] });
+            updateSouthboundChart(data.southbound || []);
+            updateGauge(data.short_ratio || { short_ratio: 15 });
+        }
+        
+        function updateTurnoverChart(data) {
+            const ctx = document.getElementById('turnoverChart').getContext('2d');
+            
+            if (turnoverChart) turnoverChart.destroy();
+            
+            const labels = data.map(d => d.date.slice(5));  // MM-DD
+            const values = data.map(d => d.turnover);
+            const colors = values.map(v => getTurnoverColor(v));
+            
+            turnoverChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: '成交额 (亿港元)',
+                        data: values,
+                        backgroundColor: colors,
+                        borderRadius: 4,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.raw} 亿港元`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af', maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateCBBCChart(data) {
+            const ctx = document.getElementById('cbbcChart').getContext('2d');
+            
+            if (cbbcChart) cbbcChart.destroy();
+            
+            const labels = data.map(d => d.date.slice(5));
+            
+            cbbcChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: '牛证街货%',
+                            data: data.map(d => d.bull_ratio),
+                            backgroundColor: '#22c55e',
+                            borderRadius: 4,
+                        },
+                        {
+                            label: '熊证街货%',
+                            data: data.map(d => d.bear_ratio),
+                            backgroundColor: '#ef4444',
+                            borderRadius: 4,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.raw}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af', maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateVHSIChart(data) {
+            const ctx = document.getElementById('vhsiChart').getContext('2d');
+            
+            if (vhsiChart) vhsiChart.destroy();
+            
+            const labels = data.vhsi.map(d => d.date.slice(5));
+            
+            // Create gradient for VHSI
+            const vhsiValues = data.vhsi.map(d => d.vhsi);
+            const vhsiColors = vhsiValues.map(v => {
+                if (v > 35) return '#ef4444';
+                if (v < 15) return '#22c55e';
+                return '#a855f7';
+            });
+            
+            vhsiChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'VHSI',
+                            data: vhsiValues,
+                            borderColor: '#a855f7',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointBackgroundColor: vhsiColors,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '沽空比率 (%)',
+                            data: data.short_ratio.map(d => d.short_ratio),
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'transparent',
+                            borderDash: [5, 5],
+                            tension: 0.4,
+                            pointRadius: 2,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.raw}${ctx.datasetIndex === 0 ? '' : '%'}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: { display: true, text: 'VHSI', color: '#a855f7' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' },
+                            min: 0,
+                            max: 60
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: { display: true, text: '沽空比率 %', color: '#f59e0b' },
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#9ca3af' },
+                            min: 0,
+                            max: 30
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af', maxTicksLimit: 15 }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateSouthboundChart(data) {
+            const ctx = document.getElementById('southboundChart').getContext('2d');
+            
+            if (southboundChart) southboundChart.destroy();
+            
+            const labels = data.map(d => d.date.slice(5));
+            const values = data.map(d => d.net_flow);
+            
+            southboundChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: '南向资金 (亿)',
+                        data: values,
+                        backgroundColor: values.map(v => v >= 0 ? '#22c55e' : '#ef4444'),
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `南向 ${ctx.raw} 亿`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af', maxRotation: 45 }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateGauge(data) {
+            const ratio = data.short_ratio || 15;
+            document.getElementById('gaugeValue').textContent = ratio.toFixed(1) + '%';
+            
+            // Gauge fill rotation
+            // 0% = -135deg, 100% = 135deg (270deg range)
+            const rotation = -135 + (ratio / 30 * 270);
+            const fill = document.getElementById('gaugeFill');
+            fill.style.transform = `rotate(${Math.min(135, Math.max(-135, rotation))}deg)`;
+            
+            // Color based on ratio
+            let color, status, badgeClass;
+            if (ratio >= 13 && ratio <= 17) {
+                color = '#3b82f6';
+                status = '✅ 正常区间';
+                badgeClass = 'status-badge status-normal';
+            } else if (ratio < 13) {
+                color = '#22c55e';
+                status = '🟢 多头强势';
+                badgeClass = 'status-badge status-active';
+            } else {
+                color = '#ef4444';
+                status = '🔴 空头活跃';
+                badgeClass = 'status-badge status-danger';
+            }
+            
+            fill.style.borderColor = color;
+            document.getElementById('gaugeStatus').textContent = status;
+            document.getElementById('shortBadge').className = badgeClass;
+            document.getElementById('shortBadge').textContent = status;
+        }
+        
+        async function refreshData() {
+            try {
+                const resp = await fetch('./fetch_data.py');
+                // Actually call the Python script via a backend endpoint
+                // For now, just reload the JSON
+                await loadData();
+            } catch (e) {
+                console.error('Refresh failed:', e);
+            }
+        }
+        
+        // Initial load
+        loadData();
+        
+        // Auto refresh every 5 minutes
+        setInterval(loadData, 5 * 60 * 1000);
+    </script>
+</body>
+</html>
