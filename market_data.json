@@ -1,22 +1,27 @@
 {
   "last_updated": "2026-04-07 17:48:00",
   "turnover": [
-    {"date": "2026-03-22", "turnover": 1234},
-    {"date": "2026-03-23", "turnover": 1425},
-    {"date": "2026-03-24", "turnover": 816},
-    {"date": "2026-03-25", "turnover": 1007},
-    {"date": "2026-03-26", "turnover": 1198},
-    {"date": "2026-03-27", "turnover": 1389},
-    {"date": "2026-03-28", "turnover": 1580},
-    {"date": "2026-03-29", "turnover": 971},
-    {"date": "2026-03-30", "turnover": 1173},
-    {"date": "2026-03-31", "turnover": 1364},
-    {"date": "2026-04-01", "turnover": 882},
-    {"date": "2026-04-02", "turnover": 1073},
-    {"date": "2026-04-03", "turnover": 1256},
-    {"date": "2026-04-04", "turnover": 1423},
-    {"date": "2026-04-07", "turnover": 1350}
+    {"date": "2026-03-13", "turnover": 27.86},
+    {"date": "2026-03-16", "turnover": 30.18},
+    {"date": "2026-03-17", "turnover": 29.01},
+    {"date": "2026-03-18", "turnover": 25.36},
+    {"date": "2026-03-19", "turnover": 35.52},
+    {"date": "2026-03-20", "turnover": 46.02},
+    {"date": "2026-03-23", "turnover": 50.94},
+    {"date": "2026-03-24", "turnover": 38.91},
+    {"date": "2026-03-25", "turnover": 45.75},
+    {"date": "2026-03-26", "turnover": 39.74},
+    {"date": "2026-03-27", "turnover": 34.09},
+    {"date": "2026-03-30", "turnover": 41.49},
+    {"date": "2026-03-31", "turnover": 38.05},
+    {"date": "2026-04-01", "turnover": 38.58},
+    {"date": "2026-04-02", "turnover": 31.95}
   ],
+  "data_source": {
+    "turnover": "Yahoo Finance HSI Volume (proxy)",
+    "southbound": "EastMoney 南向资金",
+    "vhsi": "Investing.com VHSI"
+  },
   "cbbc": [
     {"date": "2026-03-23", "bull_ratio": 58.2, "bear_ratio": 41.8},
     {"date": "2026-03-24", "bull_ratio": 61.5, "bear_ratio": 38.5},
